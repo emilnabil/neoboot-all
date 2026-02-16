@@ -1,118 +1,161 @@
-#!/bin/sh
+#!/bin/bash
 ##Command=wget https://github.com/emilnabil/neoboot-all/raw/refs/heads/main/iNB.sh -O - | /bin/sh
 ##################################
-set -e
+echo " SCRIPT : DOWNLOAD AND INSTALL NEOBOOT "
+# ###########################################
+NEOBOOT='v9.95'
+###########################################
+# Configure where we can find things here #
+MY_EM="*****************************************************************************************************"
+TMPDIR='/tmp'
+PLUGINPATH='/usr/lib/enigma2/python/Plugins/Extensions/NeoBoot'
+##########################################
+REQUIRED='/usr/lib/enigma2/python/Plugins/Extensions/NeoBoot/files'
+##########################################
+TOOLS='/usr/lib/enigma2/python/Tools'
+PREDION='/usr/lib/periodon'
+##########################################
+PYTHON_VERSION=$(python -c "import platform; print(platform.python_version())" 2>/dev/null || python3 -c "import platform; print(platform.python_version())")
 
-if [ "$(id -u)" -ne 0 ]; then
-    echo "ERROR: This script must be run as root!"
-    exit 1
+###########################################
+
+# remove old version
+if [ -d "$PLUGINPATH" ]; then
+   rm -rf "$PLUGINPATH" 
 fi
 
-if [ -f /etc/apt/apt.conf ] && command -v systemctl >/dev/null 2>&1; then
-    OS="DreamOS"
-    PKG_MANAGER="apt-get"
-    INSTALL_CMD="apt-get install -y"
+# Python Version Check #
+if python --version 2>&1 | grep -q '^Python 3\.' || python3 --version 2>&1 | grep -q '^Python 3\.'; then
+   echo "You have Python3 image"
+   PYTHON='PY3'
 else
-    OS="OpenSource"
-    PKG_MANAGER="opkg"
-    INSTALL_CMD="opkg install --force-overwrite"
+   echo "You have Python2 image"
+   PYTHON='PY2'
 fi
+#########################
 
-echo "==============================================="
-echo "              NeoBoot Installer"
-echo "==============================================="
-echo "Detected OS: $OS"
+VERSION=$NEOBOOT
 
-install_package() {
-    pkg=$1
-    echo "Attempting to install $pkg using $PKG_MANAGER..."
-    if [ "$PKG_MANAGER" = "apt-get" ]; then
-        apt-get update
-        $INSTALL_CMD "$pkg"
-    elif [ "$PKG_MANAGER" = "opkg" ]; then
-        opkg update
-        $INSTALL_CMD "$pkg"
-    else
-        echo "ERROR: No known package manager found!"
-        return 1
-    fi
-}
-
-check_tool() {
-    tool=$1
-    pkg=${2:-$1}
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        echo "WARNING: $tool not found. Attempting to install..."
-        install_package "$pkg" || {
-            echo "ERROR: Failed to install $tool. Please install it manually."
-            exit 1
-        }
-    fi
-}
-
-check_tool wget
-check_tool tar
-check_tool curl || true
-
-DOWNLOADER="wget --no-check-certificate --timeout=30"
-if ! command -v wget >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
-    DOWNLOADER="curl -L -k --connect-timeout 30 -o"
-fi
-
-if [ -e /.multinfo ]; then
-    echo "ERROR: Install NeoBoot only from FLASH image!"
+#######################################
+if [ -f /etc/opkg/opkg.conf ]; then
+    STATUS='/var/lib/opkg/status'
+    OSTYPE='Opensource'
+    OPKG='opkg update'
+    OPKGINSTAL='opkg install --force-overwrite --force-reinstall'
+elif [ -f /etc/apt/apt.conf ]; then
+    STATUS='/var/lib/dpkg/status'
+    OSTYPE='DreamOS'
+    OPKG='apt-get update'
+    OPKGINSTAL='apt-get install'
+else
+    echo "Unknown OS type"
     exit 1
 fi
 
-URL="https://github.com/emilnabil/neoboot-all/raw/refs/heads/main/neoboot_9.95.tar.gz"
-FILE="/tmp/neoboot_9.95.tar.gz"
+#########################
+case $(uname -m) in
+armv7l*) platform="armv7" ;;
+mips*) platform="mipsel" ;;
+aarch64*) platform="ARCH64" ;;
+sh4*) platform="sh4" ;;
+*) platform="unknown" ;;
+esac
 
-echo "Downloading NeoBoot..."
+#########################
+install() {
+    if ! grep -qs "Package: $1" "$STATUS"; then
+        $OPKG >/dev/null 2>&1
+        echo "   >>>>   Need to install $1   <<<<"
+        echo
+        if [ "$OSTYPE" = "Opensource" ]; then
+            $OPKGINSTAL "$1"
+            sleep 1
+            clear
+        elif [ "$OSTYPE" = "DreamOS" ]; then
+            $OPKGINSTAL "$1" -y
+            sleep 1
+            clear
+        fi
+    fi
+}
+
+#########################
+if [ "$PYTHON" = "PY3" ]; then
+    for i in kernel-module-nandsim mtd-utils-jffs2 lzo python-setuptools util-linux-sfdisk packagegroup-base-nfs ofgwrite bzip2 mtd-utils mtd-utils-ubifs; do
+        install "$i"
+    done
+else
+    for i in kernel-module-nandsim mtd-utils-jffs2 lzo python-setuptools util-linux-sfdisk packagegroup-base-nfs ofgwrite bzip2 mtd-utils mtd-utils-ubifs; do
+        install "$i"
+    done
+fi
+
+#########################
+clear
+sleep 2
+echo "   UPLOADED BY  >>>>   EMIL_NABIL " 
+sleep 2
+echo " SUPPORTED BY  >>>>  linuxsat  " 
+echo " Moded By Elsafty "
+sleep 3
+echo "***********************************************************************"
+echo " download and install plugin "
+
+
+mkdir -p /var/volatile/tmp
 
 cd /tmp
-rm -f "$FILE"
-
-if echo "$DOWNLOADER" | grep -q wget; then
-    $DOWNLOADER "$URL" -O "$FILE" || {
-        echo "ERROR: Download failed (wget error)!"
-        rm -f "$FILE"
-        exit 1
-    }
-elif echo "$DOWNLOADER" | grep -q curl; then
-    $DOWNLOADER "$FILE" "$URL" || {
-        echo "ERROR: Download failed (curl error)!"
-        rm -f "$FILE"
-        exit 1
-    }
+set -e 
+if wget -O /var/volatile/tmp/neoboot_9.95.tar.gz "https://github.com/emilnabil/neoboot-all/raw/refs/heads/main/neoboot_9.95.tar.gz"; then
+    echo "Download successful"
 else
-    echo "ERROR: No download tool available!"
+    echo "Download failed, trying alternative method..."
+    
     exit 1
 fi
 
-if [ ! -s "$FILE" ]; then
-    echo "ERROR: Downloaded file is missing or empty!"
-    rm -f "$FILE"
+wait
+if tar -xzf /var/volatile/tmp/neoboot_9.95.tar.gz -C /; then
+    echo "Extraction successful"
+else
+    echo "Extraction failed"
     exit 1
 fi
 
-echo "Extracting package..."
+set +e
+rm -f /var/volatile/tmp/neoboot_9.95.tar.gz
 
-if ! tar -xzf "$FILE" -C /; then
-    echo "ERROR: Extraction failed!"
-    rm -f "$FILE"
+#########################
+clear
+if [ -d "$PLUGINPATH" ]; then
+    cd "$PLUGINPATH"
+    chmod 755 ./bin/* 2>/dev/null
+    chmod 755 ./ex_init.py 2>/dev/null
+    chmod 755 ./files/*.sh 2>/dev/null
+    [ -d "./ubi_reader_arm" ] && chmod -R +x ./ubi_reader_arm/*
+    [ -d "./ubi_reader_mips" ] && chmod -R +x ./ubi_reader_mips/*
+else
+    echo "Plugin path not found: $PLUGINPATH"
     exit 1
 fi
 
-rm -f "$FILE"
-
-echo "NeoBoot installed successfully."
-
-sleep 2
-
-echo "Rebooting system..."
-
-reboot
-
+#########################
+echo ""
+echo "***********************************************************************"
+echo "$MY_EM"                                                     
+echo "**                       NeoBoot  : $VERSION                          *"
+echo "**                                                                    *"
+echo "***********************************************************************"
+echo " >>>>         RESTARTING     <<<<"
+echo ""
+if [ "$OSTYPE" = 'DreamOS' ]; then
+    systemctl restart enigma2
+else
+    echo "System will restart in 5 seconds..."
+    sleep 5
+    init 6
+fi
 exit 0
+
 
 
