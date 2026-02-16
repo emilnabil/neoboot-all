@@ -1,9 +1,9 @@
 #!/bin/sh
-##Command=wget https://github.com/emilnabil/neoboot/raw/refs/heads/main/neoboot_9.95/iNB.sh -O - | /bin/sh
+##Command=wget https://github.com/emilnabil/neoboot-all/raw/refs/heads/main/iNB.sh -O - | /bin/sh
 ##################################
 set -e
 
-URL="https://github.com/emilnabil/neoboot/raw/refs/heads/main/neoboot_9.95/neoboot_9.95.tar.gz"
+URL="https://github.com/emilnabil/neoboot-all/raw/refs/heads/main/neoboot_9.95.tar.gz"
 FILE="/tmp/neoboot_9.95.tar.gz"
 
 echo "==============================================="
@@ -58,6 +58,8 @@ else
 fi
 
 exit 0
+
+
 
 
 
