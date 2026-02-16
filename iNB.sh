@@ -95,9 +95,6 @@ clear
 sleep 2
 echo "   UPLOADED BY  >>>>   EMIL_NABIL " 
 sleep 2
-echo " SUPPORTED BY  >>>>  linuxsat  " 
-echo " Moded By Elsafty "
-sleep 3
 echo "***********************************************************************"
 echo " download and install plugin "
 
@@ -156,6 +153,7 @@ else
     init 6
 fi
 exit 0
+
 
 
 
